@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#This script runs through all the samples that have viral contigs have map their respective raw reads to the contigs
+#This script runs through all the samples that have viral contigs and map their respective raw reads to the contigs
 
 ROOT_DIR="/media/lorax/users/jiayi/HVP/viruscocktail"
 SUBJECT="250617_nextseq"
