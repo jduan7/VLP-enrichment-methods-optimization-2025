@@ -14,7 +14,7 @@ The following table provides the input files to run for each R script and the co
 |                                         | 250505_nextseq_cenote_R_analysis.xlsx | viral_percentage     |                    |
 |                                         | CHOPMC484-485_cenote_R_analysis.xlsx  | cenote_result        |                    |
 |                                         | CHOPMC484-485_cenote_R_analysis.xlsx  | viral_percentage     |                    |
-| Fig2_stool_spike-in_combined_analysis.R | metadata_250505.xlsx                  | NA                   | Fig2               |
+| Fig2_stool_VP1-3.R                      | metadata_250505.xlsx                  | NA                   | Fig2               |
 |                                         | metadata_250617.xlsx                  | NA                   |                    |
 |                                         | 250505_nextseq_cenote_R_analysis.xlsx | cenote_result        |                    |
 |                                         | 250505_nextseq_cenote_R_analysis.xlsx | viral_percentage     |                    |
