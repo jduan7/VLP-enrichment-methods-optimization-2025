@@ -1,4 +1,5 @@
-# Figure 2. Comparison of methods for purifying viral particles from stool.
+# Figure 2 and Fig S4. Comparison of methods for purifying viral particles from stool.
+# This script combines the reference-based and contig-based results of 250505_nextseq and 250617_nextseq and plots using facet by conditions
 library(data.table)
 library(readxl)
 library(ggpubr)
@@ -11,12 +12,14 @@ library(ggh4x)
 library(paletteer)
 
 # Get the metadata
-setwd("/Users/jduan/bushman/virome_methods/paper/codes/codes for publication/")
-metadata_250505 <- read_excel("metadata_250505.xlsx")
-metadata_250617 <- read_excel("metadata_250617.xlsx")
+setwd("/Users/jduan/bushman/virome_methods/250429_nextseq")
+metadata_250505 <- read_excel("metadata.xlsx")
+setwd("/Users/jduan/bushman/virome_methods/250616_nextseq")
+metadata_250617 <- read_excel("metadata.xlsx")
 metadata <- bind_rows(metadata_250505,metadata_250617)
 
 # Get the output excel file for 250505_nextseq
+setwd("/Users/jduan/bushman/virome_methods/250429_nextseq/R analysis")
 ref_df_250505 <-read_excel("250505_nextseq_R_analysis.xlsx", sheet="ref_viral_analysis")
 ref_reads_df_250505 <-read_excel("250505_nextseq_R_analysis.xlsx", sheet="ref_viral_percentage")
 cenote_df_250505 <-read_excel("250505_nextseq_cenote_R_analysis.xlsx", sheet="cenote_result")
@@ -29,6 +32,7 @@ cenote_df_250505 <- cenote_df_250505 %>% mutate(Amplification="none", VC_aliquot
 cenote_reads_df_250505 <- cenote_reads_df_250505 %>% mutate(Amplification="none", VC_aliquot_used="250415")
 
 # Get the output excel file for 250617_nextseq
+setwd("/Users/jduan/bushman/virome_methods/250616_nextseq/R analysis")
 ref_df_250617 <-read_excel("250617_nextseq_R_analysis.xlsx", sheet="ref_viral_analysis")
 ref_reads_df_250617 <-read_excel("250617_nextseq_R_analysis.xlsx", sheet="ref_viral_percentage")
 cenote_df_250617 <-read_excel("250617_nextseq_cenote_R_analysis.xlsx", sheet="cenote_result")
@@ -41,8 +45,8 @@ cenote_df <- rbind(cenote_df_250505, cenote_df_250617)
 cenote_reads_df <- rbind(cenote_reads_df_250505, cenote_reads_df_250617)
 
 # Combine the two viral percentages tables into one
-cenote_reads_df <- cenote_reads_df %>% mutate(contig_type="All viruses (de novo assembled)")
-ref_reads_df <- ref_reads_df %>% mutate(contig_type="VirMock1 only") %>% rename(percent_viral_reads=percent_ref_reads, sum_viral_reads=sum_viralref_reads)
+cenote_reads_df <- cenote_reads_df %>% mutate(contig_type="viral")
+ref_reads_df <- ref_reads_df %>% mutate(contig_type="ref viral") %>% rename(percent_viral_reads=percent_ref_reads, sum_viral_reads=sum_viralref_reads)
 viral_reads_abundance <- rbind(cenote_reads_df, ref_reads_df)
 
 
@@ -71,7 +75,7 @@ p_Exp1_ref <- ggplot(Exp1_ref_abundance, aes(x=Sample_ID, y=ref_relative_abundan
                nest_line = element_line(linetype=1)) +
   labs(x="Sample", y="relative abundance based on RPKM", 
        #title = "relative abundance based on reference genomes (stool spike-in experiment)"
-  ) +
+       ) +
   theme_minimal(base_family="Helvetica") +
   theme(axis.text.x = element_text(size = 8, angle = 45, hjust =1)) +
   theme(axis.text.x = element_blank(),
@@ -93,20 +97,21 @@ q_Exp1 <- ggplot(Exp1_reads_percentage, aes(x = condition, y = percent_viral_rea
               position = position_jitterdodge(jitter.width = 0.2, dodge.width = 0.75),
               size=3, alpha = 0.7, shape = 21) +
   stat_summary(fun = mean, 
-               geom = "crossbar",
-               aes(group = contig_type),
-               position = position_dodge(width = 0.75), width = 0.25, fatten = 1.5, color = "black", show.legend = FALSE) +
+    geom = "crossbar",
+    aes(group = contig_type),
+    position = position_dodge(width = 0.75), width = 0.25, fatten = 1.5, color = "black", show.legend = FALSE) +
   scale_x_discrete(drop = TRUE) +
   facet_nested(. ~ Mock_Community + Sample_type + Treatment,
-               scales = "free_x", nest_line = element_line(linetype = 1)) +
+    scales = "free_x", nest_line = element_line(linetype = 1)) +
   scale_y_continuous(limits = c(0, 100)) +
   #scale_size_continuous(name = "Total reads", labels = scales::scientific, range = c(1, 6)) +
+  # Optional: Better color palettes
   scale_fill_brewer(palette = "Set2") + scale_color_brewer(palette = "Set2") +
   #guides(size = guide_legend(override.aes = list(shape = 21, fill = "black",color = "black"))) +
   labs(
     x = "Sample", y = "Percent in total reads", 
-    title = "Viral reads percentage (stool spike-in experiment)",
-    fill = "Alignment target", color = "Alignment target") +
+    #title = "Viral reads percentage (stool spike-in experiment)",
+    fill = "Contig type", color = "Contig type") +
   theme_bw(base_family="Helvetica") +
   theme(
     axis.text.x = element_blank(),
@@ -116,7 +121,7 @@ q_Exp1 <- ggplot(Exp1_reads_percentage, aes(x = condition, y = percent_viral_rea
   )
 
 # Calculate for average percent viral reads and stdev for stool samples (w/spike-in)
-Exp1_reads_percentage %>% filter(Sample_type=="stool") %>% filter(Mock_Community=="mock community spiked-in") %>% group_by(Treatment, contig_type) %>%
+Exp1_reads_percentage %>% filter(Mock_Community=="mock community spiked-in") %>% group_by(Treatment, contig_type) %>%
   summarize(mean_perc_viral=mean(percent_viral_reads),
             sd_perc_viral=sd(percent_viral_reads))
 
@@ -128,7 +133,6 @@ cenote_reads_df <- cenote_reads_df %>%
   mutate(percent_viral_reads = ifelse(is.na(percent_viral_reads), 0, percent_viral_reads)) # replace the NA with 0 for plotting
 
 Exp1_reads_cenote_Class_abundance <- i_cenote_df %>% filter(Experiment=="stool spike-in") %>% filter(Mock_Community=="mock community spiked-in") %>% 
-  filter(Sample_type=="stool") %>%
   select(Sample_ID, Mock_Community, Sample_type, Experiment, Treatment, organism, vcontig_rpkm, num_mapped_reads, num_total_reads, Class) #make a table with all the reads data and the Class output by cenote
 Exp1_reads_cenote_Class_abundance <- Exp1_reads_cenote_Class_abundance %>% left_join(cenote_reads_df %>% ungroup() %>% select (Experiment, Sample_ID, sum_replicate_rpkm, percent_viral_reads),
                                                                                      by = c("Sample_ID" = "Sample_ID", "Experiment" = "Experiment")) #match the sum rpkm to their respective group&type so that each input reference in each group has a matching total rpkm
@@ -146,8 +150,8 @@ Exp1_Class_relative_abundance_plot <- ggplot(Exp1_reads_cenote_Class_Sum_abundan
                scales = 'free_x', 
                nest_line = element_line(linetype=1)) +
   labs(x="Sample", y="relative abundance based on RPKM", 
-       title = "relative abundance based on Class of viral contigs (stool spike-in experiment)"
-  ) +
+       #title = "relative abundance based on Class of viral contigs (stool spike-in experiment)"
+       ) +
   theme_minimal(base_family="Helvetica") +
   theme(axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
@@ -158,3 +162,47 @@ Exp1_Class_relative_abundance_plot <- ggplot(Exp1_reads_cenote_Class_Sum_abundan
 
 # Put all panels together
 (p_Exp1_ref/Exp1_Class_relative_abundance_plot) | q_Exp1
+
+
+####################################### Save plots
+# enable showtext
+#library(showtext)
+#font_add("Arial", regular = "/System/Library/Fonts/Supplemental/Arial.ttf")  # macOS path
+#showtext_auto()  # enables showtext for all plots
+
+# get the plots that are going to be saved
+plots <- list(q_Exp1, p_Exp1_ref)
+sup_plots <- list(Exp1_Class_relative_abundance_plot)
+
+# specify the destination folder
+dest_folder <- "/Users/jduan/bushman/virome_methods/paper/figures_pdf"
+if(!dir.exists(dest_folder)) dir.create(dest_folder, recursive = TRUE)
+
+# loop over plots and save as PDF
+for (i in seq_along(plots)) {
+  print(plots[[i]])   # ensures the plot is drawn
+  ggsave(
+    filename = file.path(dest_folder, paste0("Fig2_", i, ".pdf")),
+    plot = plots[[i]],
+    width = 6.5,
+    height = 7.5,
+    units = "in"
+    # no need to specify device; showtext handles font embedding
+  )
+}
+
+dest_folder <- "/Users/jduan/bushman/virome_methods/paper/supplemental"
+for (i in seq_along(sup_plots)) {
+  print(sup_plots[[i]])   # ensures the plot is drawn
+  ggsave(
+    filename = file.path(dest_folder, paste0("FigS4_", i, ".pdf")),
+    plot = sup_plots[[i]],
+    width = 6.5,
+    height = 7.5,
+    units = "in"
+    # no need to specify device; showtext handles font embedding
+  )
+}
+
+
+
