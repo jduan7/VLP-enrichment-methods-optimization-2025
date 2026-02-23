@@ -1,4 +1,5 @@
 #Figure 3. Comparison of the effects of different DNA amplification methods on viral genome recovery. 
+
 library(data.table)
 library(readxl)
 library(ggpubr)
@@ -10,19 +11,42 @@ library(stringr)
 library(ggh4x)
 library(paletteer)
 library(tidyr)
-library(vegan)
+
+# Get the metadata
+setwd("/Users/jduan/bushman/virome_methods/250224_nextseq/250221_miniseq")
+PTA_metadata<-read_excel("metadata.xlsx")
+setwd("/Users/jduan/bushman/virome_methods/250224_nextseq/250228_nextseq")
+Others_metadata<-read_excel("metadata.xlsx")
 
 # Get the RPKM and cenote analysis tables
-setwd("/Users/jduan/bushman/virome_methods/paper/codes/codes for publication/")
+setwd("/Users/jduan/bushman/virome_methods/250224_nextseq/250221_miniseq/R analysis")
 PTA_ref_viral_analysis<-read_excel("250221_miniseq_ref_R_analysis.xlsx", sheet="ref_viral_analysis")
 PTA_ref_viral_percentage<-read_excel("250221_miniseq_ref_R_analysis.xlsx", sheet="ref_viral_percentage")
+PTA_all_viral_contig_percentage <-read_excel("250221_miniseq_cenote_R_analysis.xlsx", sheet="viral_percentage")
+
+setwd("/Users/jduan/bushman/virome_methods/250224_nextseq/250228_nextseq/R analysis")
 Others_ref_viral_analysis<-read_excel("250228_nextseq_v2_ref_R_analysis.xlsx", sheet="ref_viral_analysis")
 Others_ref_viral_percentage<-read_excel("250228_nextseq_v2_ref_R_analysis.xlsx", sheet="ref_viral_percentage")
+Others_all_viral_contig_percentage <-read_excel("250228_nextseq_v2_cenote_R_analysis.xlsx", sheet="viral_percentage")
 
 # Combine the tables
-ref_viral_saliva <- rbind(PTA_ref_viral_analysis, Others_ref_viral_analysis)
+ref_viral_analysis <- rbind(PTA_ref_viral_analysis, Others_ref_viral_analysis)
 ref_viral_percentage <- rbind(PTA_ref_viral_percentage, Others_ref_viral_percentage)
+all_viral_contig_percentage <- rbind(PTA_all_viral_contig_percentage, Others_all_viral_contig_percentage)
+
+# Combine the two viral percentages tables into one
+all_viral_contig_percentage <- all_viral_contig_percentage %>% mutate(contig_type="viral")
 ref_viral_percentage <- ref_viral_percentage %>% mutate(contig_type="ref viral") %>% rename(percent_viral_reads=percent_ref_reads, sum_viral_reads=sum_viralref_reads)
+viral_reads_abundance <- all_viral_contig_percentage %>% bind_rows(ref_viral_percentage)
+
+
+# Filter for saliva samples
+ref_viral_saliva <- ref_viral_analysis %>% filter(!str_detect(group,"OP wash|NP swab")) #filter out any entries that contain OP wash and NP swab
+viral_reads_abundance_saliva <- viral_reads_abundance %>% filter(!str_detect(group,"OP wash|NP swab"))
+
+# Filter for certain types of amplification
+ref_viral_saliva <- ref_viral_saliva %>% filter(!str_detect(amplification,"WTA2_7cycles|WTA2_12cycles")) #filter out any entries that contain WTA2_7cycles or WTA2_12cycles
+viral_reads_abundance_saliva <- viral_reads_abundance_saliva %>% filter(!str_detect(amplification,"WTA2_7cycles|WTA2_12cycles"))
 
 # Calculate relative abundance and make bar plots
 saliva_ref_abundance_plot <- ref_viral_saliva %>% select(sample, group, amplification, replicate, Treatment, Mock_Community, Sample_type, reference_genome, ref_rpkm, mapped_ref_reads, total_reads)
@@ -41,7 +65,7 @@ saliva_ref_abundance_plot <- saliva_ref_abundance_plot %>% filter(Mock_Community
 # Arrange in a certain order for later plotting
 panel_order <- c("unamplified", "Genomiphi","PTA","WTA2_17cycles","MALBAC_17cycles")
 saliva_ref_abundance_plot$amplification <- factor(saliva_ref_abundance_plot$amplification, levels = panel_order)
-#viral_reads_abundance_saliva$amplification <- factor(viral_reads_abundance_saliva$amplification, levels = panel_order)
+viral_reads_abundance_saliva$amplification <- factor(viral_reads_abundance_saliva$amplification, levels = panel_order)
 
 # Making relative abundance plots
 p <- ggplot(saliva_ref_abundance_plot, aes(x=factor(replicate), y=ref_relative_abundance, fill=reference_genome)) + 
@@ -59,6 +83,7 @@ p <- ggplot(saliva_ref_abundance_plot, aes(x=factor(replicate), y=ref_relative_a
         axis.ticks.x = element_blank(),
         strip.background=element_blank(),
         ggh4x.facet.nestline=element_line(color="black"))
+
 
 ############# Ecllipse PCoA plot for amplification methods experiment using Bray-Curtis
 
@@ -90,25 +115,10 @@ print(saliva_adonis)
 
 # Run by-factor test
 mod1 <- adonis2(saliva_ref_bray ~ amplification, data = saliva_metadata, by = "margin")
-mod2 <- adonis2(saliva_ref_bray ~ group, data = saliva_metadata, by = "margin")
-mod3 <- adonis2(saliva_ref_bray ~ amplification+group, data = saliva_metadata, by = "margin")
-mod4 <- adonis2(saliva_ref_bray ~ amplification*group, data = saliva_metadata, by = "margin")
 summary_adonis_mod <- data.frame(
-  Model=c("Amplification method"
-          #"Sample group",
-          #"Amplification method + Sample group",
-          #"Amplification method x Sample group (interaction)"
-  ),
-  R2=c(mod1$R2[1]
-       #mod2$R2[1],
-       #sum(mod3$R2[1:2]),
-       #sum(mod4$R2[1:3])
-  ),
-  P_value= c(mod1$`Pr(>F)`[1]
-             #mod2$`Pr(>F)`[1],
-             #max(mod3$`Pr(>F)`[1:2], na.rm = TRUE),
-             #max(mod4$`Pr(>F)`[1:3], na.rm = TRUE)
-  )
+  Model=c("Amplification method"),
+  R2=c(mod1$R2[1] ),
+  P_value= c(mod1$`Pr(>F)`[1])
 )
 print(summary_adonis_mod, row.names=FALSE)
 
@@ -134,4 +144,31 @@ pcoa_ecllipse <- ggplot(saliva_ref_pcoa_df, aes(x=Axis1, y=Axis2, color=amplific
   ) +
   annotate("text", x = Inf, y = Inf, hjust = 1.1, vjust = 1.1,
            label=adonis_text, size=4)
+
+
+####################################### Save plots
+# enable showtext
+#library(showtext)
+#font_add("Arial", regular = "/System/Library/Fonts/Supplemental/Arial.ttf")  # macOS path
+#showtext_auto()  # enables showtext for all plots
+
+# get the plots that are going to be saved
+plots <- list(p, pcoa_ecllipse)
+
+# specify the destination folder
+dest_folder <- "/Users/jduan/bushman/virome_methods/paper/figures_pdf"
+if(!dir.exists(dest_folder)) dir.create(dest_folder, recursive = TRUE)
+
+# loop over plots and save as PDF
+for (i in seq_along(plots)) {
+  print(plots[[i]])   # ensures the plot is drawn
+  ggsave(
+    filename = file.path(dest_folder, paste0("Fig3_", i, ".pdf")),
+    plot = plots[[i]],
+    width = 6.5,
+    height = 7.5,
+    units = "in"
+    # no need to specify device; showtext handles font embedding
+  )
+}
 
