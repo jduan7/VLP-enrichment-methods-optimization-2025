@@ -1,0 +1,436 @@
+---
+title: "mSystems response to reviewers"
+author: "Naomi G Wilson"
+date: "`r Sys.Date()`"
+output: 
+    pdf_document:
+        keep_tex: false
+        toc: true
+        toc_depth: 4
+---
+
+```{r setup, echo=FALSE, message=FALSE, warning=FALSE}
+library(knitr)
+opts_chunk$set(
+  tidy=FALSE,
+  cache=FALSE,
+  echo=FALSE,
+  warning=FALSE,
+  message=FALSE,
+  dpi=400,
+  fig.width=5,
+  fig.height=3,
+  fig.align = "center",
+  out.width = "90%"
+  )
+```
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(taxafmt)
+library(vegan)
+library(ape)
+library(usedist)
+
+## Visualization packages
+library(pander)
+library(kableExtra)
+library(pheatbuilder)
+library(ggbeeswarm)
+library(ggsci)
+library(ggh4x)
+library(viridis)
+library(wesanderson)
+library(RColorBrewer)
+
+# stats packages
+library(adonisplus)
+library(nlme)
+library(emmeans) # for lmer post-hoc tests
+library(broom.mixed)
+
+theme_clean <- function(){ 
+    theme_bw() %+replace%    #replace elements we want to change
+    theme(
+      panel.grid = element_blank(), 
+      strip.background = element_blank()
+    )
+}
+
+theme_stack <- function(){
+  theme_minimal() %+replace%    #replace elements we want to change
+      theme(axis.text = element_text(face = "bold", color="black", size = 8),
+        strip.placement = "outside",
+        strip.text = element_text(face = "bold"),
+        strip.background = element_rect(fill = NA, color = "white"),
+        panel.spacing = unit(-.01,"cm")) 
+}
+```
+
+Kraken2 run on VirMock1 samples with the core_nt kraken db version 10/15/2025 downloaded from here: <https://benlangmead.github.io/aws-indexes/k2>. Very large collection, inclusive of GenBank, RefSeq, TPA and PDB.
+
+```{r}
+data_dir <- "~/Documents/projects/HVP/CHOPMC-485_Moustafa_shotgun/Data/msystems_reviews"
+exptdesign_fp <- file.path(data_dir, "samples_for_kraken.xlsx")
+virmock_kraken_fp <- file.path(data_dir, "all_samples.tsv")
+s <- readxl::read_excel(path = exptdesign_fp, sheet = 1, col_names = TRUE) %>%
+  mutate(SampleID=gsub("_R1_001.fastq.gz", "", R1_file))
+```
+
+```{r load}
+o <- read_delim(virmock_kraken_fp, delim = "\t", col_names = T)
+counts <- o %>% select(!c(`#OTU ID`, `Consensus Lineage`))
+colnames(counts) <- sub("\\-taxa$", "", colnames(counts))
+
+# test <- o %>% 
+#   select(Taxon=`Consensus Lineage`) %>%
+#   mutate(Taxon = taxafmt::remove_rank_prefix(Taxon, pattern =  "[kpcofgs]__"))
+# result <- stringr::str_split_fixed(as.character(test$Taxon), pattern = "; ", n = 7)  
+# colnames(result) <- c("p1", "p2", "cl", "ord", "fam", "gen", "sp")
+# result <- tibble::as_tibble(result)
+# result <- dplyr::mutate(result, dplyr::across(tidyselect::everything(), 
+#         na_if_empty))
+
+# split_lineage_test <- function(lineage, pattern = "; ", ranks = taxonomic_ranks) 
+# {
+#     lineage <- as.character(lineage)
+#     nranks <- length(ranks)
+#     result <- stringr::str_split_fixed(lineage, pattern, n = nranks)
+#     colnames(result) <- ranks
+#     result <- tibble::as_tibble(result)
+#     result <- dplyr::mutate(result, dplyr::across(tidyselect::everything()))
+#     result
+# }
+ta <- o %>% 
+  select(Taxid=`#OTU ID`, Taxon=`Consensus Lineage`) %>%
+  mutate(Taxon = taxafmt::remove_rank_prefix(Taxon, pattern =  "[kpcofgs]__"))
+adf <- taxafmt::split_lineage(ta$Taxon) # taxonomic table
+rownames(adf) <- ta$Taxid
+
+rm(ta)
+# is_human <- grepl("Chordata", adf$Phylum)
+is_empty <- rowSums(counts) == 0
+taxa_to_delete = is_empty
+adf <- adf[!taxa_to_delete,]
+counts <- counts[!taxa_to_delete,]
+rm(is_human, is_empty, taxa_to_delete)
+
+a <- taxafmt::format_taxa(adf, guide = "Phylum") # species-level
+summed_cts <- rowsum(counts, a) # counts
+summed_props <- sweep(summed_cts, 2, colSums(summed_cts), "/") # relab
+
+# a_p2 <- taxafmt::format_taxa(adf, guide = "Phylum2") # species-level
+# summed_cts_p2 <- rowsum(counts, a_p2) # counts
+# summed_props_p2 <- sweep(summed_cts_p2, 2, colSums(summed_cts_p2), "/") # relab
+
+a_g <- taxafmt::format_taxa(adf %>% select(!Species), guide="Phylum") # genus-level
+summed_cts_g <- rowsum(counts, a_g) # counts
+summed_props_g <- sweep(summed_cts_g, 2, colSums(summed_cts_g), "/") # relab
+# a_c <- taxafmt::format_taxa(adf %>% select(!Class), guide="Phylum")
+a_c <- taxafmt::format_taxa(adf %>% select(Kingdom, Phylum, Class), guide="Phylum")
+summed_cts_c <- rowsum(counts, a_c) # counts
+summed_props_c <- sweep(summed_cts_c, 2, colSums(summed_cts_c), "/") # relab
+
+a_p <- taxafmt::format_taxa(adf %>% select(Kingdom, Phylum), guide="Kingdom")
+summed_cts_p <- rowsum(counts, a_p) # counts
+summed_props_p <- sweep(summed_cts_p, 2, colSums(summed_cts_p), "/") # relab
+
+# ann_cols <- factor_palette(x = dat$species, colors = ggsci::pal_bmj()(length(unique(dat$species))))
+
+# table(dat %>% 
+#   select(SampleID, sample_type, `DNA(1) or RNA(2)`=flow_cell_lane, spikein) %>%
+#     distinct() %>%
+#   select(!SampleID)) %>%
+#     pander(caption="Sample counts")
+```
+
+\newpage
+
+# Species Stacked Barplots
+
+```{r, fig.height = 7.5, fig.width = 6.5}
+toexpr <- function(x, plain = NULL) {
+  getfun <- function(x) {
+    ifelse(x == plain, "plain", "italic")
+  }
+  as.expression(unname(Map(function(f,v) substitute(f(v), list(f=as.name(f), v=as.character(v))), getfun(x), x)))
+}
+
+tmp = summed_props %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Taxa") %>% 
+  pivot_longer(-Taxa, names_to="SampleID", values_to="props") %>%
+  mutate(Taxa2 = fct_lump(Taxa, 19, w=props)) %>% 
+  mutate(Taxa2 = gsub(" ", "\n", gsub("^.* - ", "", Taxa2))) %>%
+  mutate(Taxa2 = reorder(Taxa2, -props)) %>%
+  
+  left_join(s %>% mutate(Treatment = str_wrap(Treatment, 5)), by = c("SampleID")) %>%
+  filter(Experiment=="stool spike-in") %>%
+  group_by(SampleID, Taxa2, Experiment, Sample_type, Mock_Community, Treatment) %>%
+    summarize(props = sum(props)) %>%
+  ungroup() 
+
+tmp %>%
+  ggplot(aes(x=SampleID, y=props, fill=Taxa2)) +
+    geom_bar(stat="identity") +
+    # scale_fill_d3(palette = "category20") +
+  scale_fill_manual(values = ggsci::pal_d3("category20")(20)[c(1:17, 19, 20, 18)], labels = expression(italic("Homo\nsapiens"), italic("unclassified\nPseudomonas"), 
+    italic("Bacteriophage\nsp."), italic("Caudoviricetes\nsp."), 
+    italic("Mus\nmusculus"), italic("Ralstonia\nsolanacearum"), 
+    italic("Mesomycoplasma\nhyorhinis"), italic("Macaca\nmulatta"), 
+    plain("unclassified\nBacteria"), italic("Microviridae\nsp."), 
+    italic("Tequatrovirus\nT4"), italic("Segatella\ncopri"), 
+    italic("unclassified\nTequatrovirus"), italic("Corynebacterium\nmatruchotii"), 
+    plain("unclassified\nPseudomonadota"), plain("unclassified\nEukaryota"), 
+    italic("Zierdtviridae\nsp."), italic("Chlorocebus\naethiops"), 
+    italic("Orthopoxvirus\nvaccinia"), plain("Other\n"))) +
+    facet_grid(~Sample_type + str_wrap(Mock_Community, 15) + Treatment, scales="free") +
+    scale_y_continuous(limits = c(0,1.01), expand=c(0,0)) +
+    ggh4x::facet_nested(. ~ Mock_Community + Treatment + Sample_type, 
+               scales = "free_x", nest_line = element_line(linetype = 1)) +
+    theme_minimal() +
+    theme(strip.text.x = element_text(size=8), #change facet title font size
+        text = element_text(family="Helvetica"), #change text font
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.background=element_blank(),
+        ggh4x.facet.nestline=element_line(color="black"),
+        legend.key.height = unit(6/20, units = "in"),
+        legend.title = element_text(size=10),
+        legend.text = element_text(size=8, vjust = 0.2, hjust = 0)) + #c(rep("italic", 8), "plain", rep("italic", 6), "plain", rep("italic", 3), "plain"))) +
+    # theme_classic() +
+    # theme(
+    #   axis.text.x=element_text(angle=90,hjust=1,vjust=0.5),
+    #   strip.background = element_blank(),
+    #   strip.text.y.right = element_text(angle = 0, size=10, hjust = 0)
+    #   ) +
+    guides(fill=guide_legend(ncol = 1)) +
+    labs(x="", y="Relative abundance", fill="Species")
+ggsave(filename = "../Jiayi_methods_figures/VirMock1_species_stool.pdf", device = "pdf", useDingbats=F, dpi = 600)
+```
+
+
+```{r, fig.height = 7.5, fig.width = 6.5}
+summed_props %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Taxa") %>% 
+  pivot_longer(-Taxa, names_to="SampleID", values_to="props") %>%
+  mutate(Taxa2 = fct_lump(Taxa, 19, w=props)) %>% 
+  mutate(Taxa2 = gsub(" ", "\n", gsub("^.* - ", "", Taxa2))) %>%
+  mutate(Taxa2 = reorder(Taxa2, props)) %>%
+  
+  left_join(s %>% mutate(Treatment = str_wrap(Treatment, 5)), by = c("SampleID")) %>%
+  filter(Experiment!="stool spike-in") %>%
+  group_by(SampleID, Taxa2, Experiment, Sample_type, Mock_Community, Treatment) %>%
+    summarize(props = sum(props)) %>%
+  ungroup() %>%
+  
+  ggplot(aes(x=SampleID, y=props, fill=fct_rev(Taxa2))) +
+    geom_bar(stat="identity") +
+ scale_fill_manual(values = ggsci::pal_d3("category20")(20)[c(1:17, 19, 20, 18)], labels = expression(italic("Homo\nsapiens"), italic("unclassified\nPseudomonas"), 
+    italic("Bacteriophage\nsp."), italic("Caudoviricetes\nsp."), 
+    italic("Mus\nmusculus"), italic("Ralstonia\nsolanacearum"), 
+    italic("Mesomycoplasma\nhyorhinis"), italic("Macaca\nmulatta"), 
+    plain("unclassified\nBacteria"), italic("Microviridae\nsp."), 
+    italic("Tequatrovirus\nT4"), italic("Segatella\ncopri"), 
+    italic("unclassified\nTequatrovirus"), italic("Corynebacterium\nmatruchotii"), 
+    plain("unclassified\nPseudomonadota"), plain("unclassified\nEukaryota"), 
+    italic("Zierdtviridae\nsp."), italic("Chlorocebus\naethiops"), 
+    italic("Orthopoxvirus\nvaccinia"), plain("Other\n"))) +    facet_grid(~Sample_type + str_wrap(Mock_Community, 15) + Treatment, scales="free") +
+    scale_y_continuous(limits = c(0,1.01), expand=c(0,0)) +
+    ggh4x::facet_nested(. ~ Mock_Community + Treatment + Sample_type, 
+               scales = "free_x", nest_line = element_line(linetype = 1)) +
+    theme_minimal() +
+    theme(strip.text.x = element_text(size=8), #change facet title font size
+        text = element_text(family="Helvetica"), #change text font
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.background=element_blank(),
+        ggh4x.facet.nestline=element_line(color="black"),
+        legend.key.height = unit(6/20, units = "in"),
+        legend.title = element_text(size=10),
+        legend.text = element_text(size=8, vjust = 0.2, hjust = 0)) + 
+    guides(fill=guide_legend(ncol = 1)) +
+    labs(x="", y="Relative abundance", fill="Species")
+ggsave(filename = "../Jiayi_methods_figures/VirMock1_species_airway.pdf", device = "pdf", useDingbats=F, dpi = 600)
+```
+
+\newpage
+
+# Genus Stacked Barplots
+
+```{r, fig.height = 6, fig.width = 10}
+summed_props_g %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Taxa") %>% 
+  pivot_longer(-Taxa, names_to="SampleID", values_to="props") %>%
+  mutate(Taxa2 = fct_lump(Taxa, 19, w=props)) %>% 
+  mutate(Taxa2 = reorder(Taxa2, props)) %>%
+  
+  left_join(s, by = c("SampleID")) %>%
+  filter(Experiment=="stool spike-in") %>%
+  group_by(SampleID, Taxa2, Experiment, Sample_type, Mock_Community, Treatment) %>%
+    summarize(props = sum(props)) %>%
+  ungroup() %>%
+  
+  ggplot(aes(x=SampleID, y=props, fill=fct_rev(Taxa2))) +
+    geom_bar(stat="identity") +
+    scale_fill_d3(palette = "category20") +
+    facet_grid(~Sample_type + str_wrap(Mock_Community, 15) + Treatment, scales="free") +
+    scale_y_continuous(limits = c(0,1.01), expand=c(0,0), labels=scales:::percent) +
+    theme_classic() +
+    theme(
+      axis.text.x=element_text(angle=90,hjust=1,vjust=0.5),
+      strip.background = element_blank(),
+      strip.text.y.right = element_text(angle = 0, size=10, hjust = 0)
+      ) +
+    guides(fill=guide_legend(ncol = 1)) +
+    labs(x="", y="Relative abundance", fill="Genus")
+
+summed_props_g %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Taxa") %>% 
+  pivot_longer(-Taxa, names_to="SampleID", values_to="props") %>%
+  mutate(Taxa2 = fct_lump(Taxa, 19, w=props)) %>% 
+  mutate(Taxa2 = reorder(Taxa2, props)) %>%
+  
+  left_join(s, by = c("SampleID")) %>%
+  filter(Experiment!="stool spike-in") %>%
+  group_by(SampleID, Taxa2, Experiment, Sample_type, Mock_Community, Treatment) %>%
+    summarize(props = sum(props)) %>%
+  ungroup() %>%
+  
+  ggplot(aes(x=SampleID, y=props, fill=fct_rev(Taxa2))) +
+    geom_bar(stat="identity") +
+    scale_fill_d3(palette = "category20") +
+    facet_grid(~fct_rev(Sample_type) + str_wrap(Mock_Community, 15) + Treatment, scales="free") +
+    scale_y_continuous(limits = c(0,1.01), expand=c(0,0), labels=scales:::percent) +
+    theme_classic() +
+    theme(
+      axis.text.x=element_text(angle=90,hjust=1,vjust=0.5),
+      strip.background = element_blank(),
+      strip.text.y.right = element_text(angle = 0, size=10, hjust = 0)
+      ) +
+    guides(fill=guide_legend(ncol = 1)) +
+    labs(x="", y="Relative abundance", fill="Genus")
+```
+
+\newpage
+
+# Phylum Level Stacked Barplots
+
+```{r, fig.height = 6, fig.width = 10}
+summed_props_p %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Taxa") %>% 
+  pivot_longer(-Taxa, names_to="SampleID", values_to="props") %>%
+  mutate(Taxa2 = fct_lump(Taxa, 19, w=props)) %>% 
+  mutate(Taxa2 = reorder(Taxa2, props)) %>%
+  
+  left_join(s, by = c("SampleID")) %>%
+  filter(Experiment=="stool spike-in") %>%
+  group_by(SampleID, Taxa2, Experiment, Sample_type, Mock_Community, Treatment) %>%
+    summarize(props = sum(props)) %>%
+  ungroup() %>%
+  
+  ggplot(aes(x=SampleID, y=props, fill=fct_rev(Taxa2))) +
+    geom_bar(stat="identity") +
+    scale_fill_d3(palette = "category20") +
+    facet_grid(~Sample_type + str_wrap(Mock_Community, 15) + Treatment, scales="free") +
+    scale_y_continuous(limits = c(0,1.01), expand=c(0,0), labels=scales:::percent) +
+    theme_classic() +
+    theme(
+      axis.text.x=element_text(angle=90,hjust=1,vjust=0.5),
+      strip.background = element_blank(),
+      strip.text.y.right = element_text(angle = 0, size=10, hjust = 0)
+      ) +
+    guides(fill=guide_legend(ncol = 1)) +
+    labs(x="", y="Relative abundance", fill="Phylum")
+
+summed_props_p %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Taxa") %>% 
+  pivot_longer(-Taxa, names_to="SampleID", values_to="props") %>%
+  mutate(Taxa2 = fct_lump(Taxa, 19, w=props)) %>% 
+  mutate(Taxa2 = reorder(Taxa2, props)) %>%
+  
+  left_join(s, by = c("SampleID")) %>%
+  filter(Experiment!="stool spike-in") %>%
+  group_by(SampleID, Taxa2, Experiment, Sample_type, Mock_Community, Treatment) %>%
+    summarize(props = sum(props)) %>%
+  ungroup() %>%
+  
+  ggplot(aes(x=SampleID, y=props, fill=fct_rev(Taxa2))) +
+    geom_bar(stat="identity") +
+    scale_fill_d3(palette = "category20") +
+    facet_grid(~fct_rev(Sample_type) + str_wrap(Mock_Community, 15) + Treatment, scales="free") +
+    scale_y_continuous(limits = c(0,1.01), expand=c(0,0), labels=scales:::percent) +
+    theme_classic() +
+    theme(
+      axis.text.x=element_text(angle=90,hjust=1,vjust=0.5),
+      strip.background = element_blank(),
+      strip.text.y.right = element_text(angle = 0, size=10, hjust = 0)
+      ) +
+    guides(fill=guide_legend(ncol = 1)) +
+    labs(x="", y="Relative abundance", fill="Phylum")
+
+```
+
+```{r, fig.height = 6, fig.width = 10}
+summed_props_p %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Taxa") %>% 
+  pivot_longer(-Taxa, names_to="SampleID", values_to="props") %>%
+  mutate(Taxa2 = fct_lump(Taxa, 19, w=props)) %>% 
+  mutate(Taxa2 = reorder(Taxa2, props)) %>%
+  
+  left_join(s, by = c("SampleID")) %>%
+  filter(Experiment=="stool spike-in") %>%
+  group_by(SampleID, Taxa2, Experiment, Sample_type, Mock_Community, Treatment) %>%
+    summarize(props = sum(props)) %>%
+  ungroup() %>%
+  
+  ggplot(aes(x=SampleID, y=props, fill=fct_inorder(gsub("unclassified | - .*", "", Taxa2)))) +
+    geom_bar(stat="identity") +
+    scale_fill_d3(palette = "category20") +
+    facet_grid(~Sample_type + str_wrap(Mock_Community, 15) + Treatment, scales="free") +
+    scale_y_continuous(limits = c(0,1.01), expand=c(0,0), labels=scales:::percent) +
+    theme_classic() +
+    theme(
+      axis.text.x=element_text(angle=90,hjust=1,vjust=0.5),
+      strip.background = element_blank(),
+      strip.text.y.right = element_text(angle = 0, size=10, hjust = 0)
+      ) +
+    guides(fill=guide_legend(ncol = 1)) +
+    labs(x="", y="Relative abundance", fill="Kingdom/Realm")
+
+summed_props_p %>% 
+  as.data.frame() %>% 
+  rownames_to_column("Taxa") %>% 
+  pivot_longer(-Taxa, names_to="SampleID", values_to="props") %>%
+  mutate(Taxa2 = fct_lump(Taxa, 19, w=props)) %>% 
+  mutate(Taxa2 = reorder(Taxa2, props)) %>%
+  
+  left_join(s, by = c("SampleID")) %>%
+  filter(Experiment!="stool spike-in") %>%
+  group_by(SampleID, Taxa2, Experiment, Sample_type, Mock_Community, Treatment) %>%
+    summarize(props = sum(props)) %>%
+  ungroup() %>%
+  
+  ggplot(aes(x=SampleID, y=props, fill=fct_inorder(gsub("unclassified | - .*", "", Taxa2)))) +
+    geom_bar(stat="identity") +
+    scale_fill_d3(palette = "category20") +
+    facet_grid(~fct_rev(Sample_type) + str_wrap(Mock_Community, 15) + Treatment, scales="free") +
+    scale_y_continuous(limits = c(0,1.01), expand=c(0,0), labels=scales:::percent) +
+    theme_classic() +
+    theme(
+      axis.text.x=element_text(angle=90,hjust=1,vjust=0.5),
+      strip.background = element_blank(),
+      strip.text.y.right = element_text(angle = 0, size=10, hjust = 0)
+      ) +
+    guides(fill=guide_legend(ncol = 1)) +
+    labs(x="", y="Relative abundance", fill="Kingdom/Realm")
+
+```
+
+END
