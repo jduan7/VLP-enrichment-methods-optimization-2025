@@ -1,4 +1,4 @@
-# Figure S3. Comparison of methods for purifying viral particles from stool.
+# Figure S4. Comparison of methods for purifying viral particles from stool.
 
 # This script combines the reference-based and contig-based results of 250505_nextseq and 250617_nextseq and plots using facet by conditions
 # and summarizes the VirMock1 distribution result using PCoA
