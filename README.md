@@ -71,7 +71,7 @@ The following table provides the input files to run for each R script and the co
 |  | 250617_nextseq_R_analysis.xlsx | ref_viral_percentage |  |
 | FigS6_KrakenResult.Rmd | samples_for_kraken.xlsx |  | Fig S6 |
 |  | all_samples.tsv |  |  |
-| FigS7_BALsalivaOP.R | metadata_250617 |  | Fig S7 |
+| FigS7_BALsalivaOP_PTA_vs_noPTA.R | metadata_250617 |  | Fig S7 |
 |  | 250617_nextseq_cenote_R_analysis.xlsx | cenote_result |  |
 |  | 250617_nextseq_cenote_R_analysis.xlsx | viral_percentage |  |
 |  | 250617_nextseq_R_analysis.xlsx | ref_viral_analysis |  |
@@ -80,11 +80,11 @@ The following table provides the input files to run for each R script and the co
 |  | 260116_nextseq_R_analysis.xlsx | ref_viral_percentage |  |
 |  | 260116_nextseq_cenote_R_analysis.xlsx | cenote_result |  |
 |  | 260116_nextseq_cenote_R_analysis.xlsx | viral_percentage |  |
-| FigS9_2ndstrand_usedist_stats.R | 260116_nextseq_R_analysis.xlsx | ref_viral_analysis | Fig S8O |
+| FigS8_2ndstrand_usedist_stats.R | 260116_nextseq_R_analysis.xlsx | ref_viral_analysis | Fig S8O |
 |  | 260116_nextseq_R_analysis.xlsx | ref_viral_percentage |  |
 |  | 260116_nextseq_cenote_R_analysis.xlsx | cenote_result |  |
 |  | 260116_nextseq_cenote_R_analysis.xlsx | viral_percentage |  |
-| FigS10_seq_depth_viral_contig.R | 250221_miniseq_cenote_R_analysis.xlsx | cenote_result | Fig S9 |
+| FigS9_seq_depth_viral_contig.R | 250221_miniseq_cenote_R_analysis.xlsx | cenote_result | Fig S9 |
 |  | 250228_nextseq_v2_cenote_R_analysis.xlsx | cenote_result |  |
 |  | 250505_nextseq_cenote_R_analysis.xlsx | cenote_result |  |
 |  | 250617_nextseq_cenote_R_analysis.xlsx | cenote_result |  |
