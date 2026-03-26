@@ -10,37 +10,15 @@ library(ggh4x)
 library(paletteer)
 
 # Get the metadata
-setwd("/Users/jduan/bushman/virome_methods/250429_nextseq")
-metadata_250505 <- read_excel("metadata.xlsx")
 setwd("/Users/jduan/bushman/virome_methods/250616_nextseq")
-metadata_250617 <- read_excel("metadata.xlsx")
-metadata <- bind_rows(metadata_250505,metadata_250617)
-
-# Get the output excel file for 250505_nextseq
-setwd("/Users/jduan/bushman/virome_methods/250429_nextseq/R analysis")
-ref_df_250505 <-read_excel("250505_nextseq_R_analysis.xlsx", sheet="ref_viral_analysis")
-ref_reads_df_250505 <-read_excel("250505_nextseq_R_analysis.xlsx", sheet="ref_viral_percentage")
-cenote_df_250505 <-read_excel("250505_nextseq_cenote_R_analysis.xlsx", sheet="cenote_result")
-cenote_reads_df_250505 <-read_excel("250505_nextseq_cenote_R_analysis.xlsx", sheet="viral_percentage")
-
-# Add columns for 250505_nextseq
-ref_df_250505 <- ref_df_250505 %>% mutate(Amplification="none", VC_aliquot_used="250415")
-ref_reads_df_250505 <- ref_reads_df_250505 %>% mutate(Amplification="none", VC_aliquot_used="250415")
-cenote_df_250505 <- cenote_df_250505 %>% mutate(Amplification="none", VC_aliquot_used="250415")
-cenote_reads_df_250505 <- cenote_reads_df_250505 %>% mutate(Amplification="none", VC_aliquot_used="250415")
+metadata <- read_excel("metadata.xlsx")
 
 # Get the output excel file for 250617_nextseq
 setwd("/Users/jduan/bushman/virome_methods/250616_nextseq/R analysis")
-ref_df_250617 <-read_excel("250617_nextseq_R_analysis.xlsx", sheet="ref_viral_analysis")
-ref_reads_df_250617 <-read_excel("250617_nextseq_R_analysis.xlsx", sheet="ref_viral_percentage")
-cenote_df_250617 <-read_excel("250617_nextseq_cenote_R_analysis.xlsx", sheet="cenote_result")
-cenote_reads_df_250617 <-read_excel("250617_nextseq_cenote_R_analysis.xlsx", sheet="viral_percentage")
-
-# Combine the two tables
-ref_df <- rbind(ref_df_250505, ref_df_250617)
-ref_reads_df <- rbind(ref_reads_df_250505, ref_reads_df_250617)
-cenote_df <- rbind(cenote_df_250505, cenote_df_250617)
-cenote_reads_df <- rbind(cenote_reads_df_250505, cenote_reads_df_250617)
+ref_df <-read_excel("250617_nextseq_R_analysis.xlsx", sheet="ref_viral_analysis")
+ref_reads_df <-read_excel("250617_nextseq_R_analysis.xlsx", sheet="ref_viral_percentage")
+cenote_df <-read_excel("250617_nextseq_cenote_R_analysis.xlsx", sheet="cenote_result")
+cenote_reads_df <-read_excel("250617_nextseq_cenote_R_analysis.xlsx", sheet="viral_percentage")
 
 # Combine the two viral percentages tables into one
 cenote_reads_df <- cenote_reads_df %>% mutate(contig_type="viral")
