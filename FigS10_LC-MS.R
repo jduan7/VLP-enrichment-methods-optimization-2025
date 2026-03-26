@@ -1,4 +1,4 @@
-#Figure S3. Relative abundance of each modified and unmodified nucleoside in T4 C, T4 hmC, and T4 ghmC determined by LC-MS are shown in the bar graph. 
+#Figure S10. Relative abundance of each modified and unmodified nucleoside in T4 C, T4 hmC, and T4 ghmC determined by LC-MS are shown in the bar graph. 
 library(data.table)
 library(readxl)
 library(ggpubr)
