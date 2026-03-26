@@ -1,4 +1,4 @@
-#Figure S6. Relative abundance of each reference virus after VirMock1 was spiked into saliva, OP wash, or BAL 
+#Figure S7. Relative abundance of each reference virus after VirMock1 was spiked into saliva, OP wash, or BAL 
 #and followed by VP4 and amplification by PTA or remained unamplified.
 
 library(data.table)
